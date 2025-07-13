@@ -12,12 +12,22 @@
 #pragma warning(push)
 #endif
 
-static inline void* CSTL_node_value(CSTL_ListNode* node) {
-    return (void*)(node + 1);
+static inline size_t CSTL_list_node_value_offset(CSTL_Type type) {
+    size_t alignment = CSTL_type_alignment(type);
+    size_t offset    = sizeof(CSTL_ListNode);
+    size_t rem       = offset % alignment;
+    if (rem != 0) {
+        offset += alignment - rem;
+    }
+    return offset;
 }
 
-static inline const void* CSTL_const_node_value(const CSTL_ListNode* node) {
-    return (const void*)(node + 1);
+static inline void* CSTL_node_value(CSTL_ListNode* node, CSTL_Type type) {
+    return (char*)node + CSTL_list_node_value_offset(type);
+}
+
+static inline const void* CSTL_const_node_value(const CSTL_ListNode* node, CSTL_Type type) {
+    return (const char*)node + CSTL_list_node_value_offset(type);
 }
 
 static void CSTL_list_link_node(CSTL_ListNode* where, CSTL_ListNode* new_node) {
@@ -34,32 +44,39 @@ static void CSTL_list_unlink_node(CSTL_ListNode* node) {
 
 static CSTL_ListNode* CSTL_list_create_node(CSTL_Type type, const void* value, CSTL_CopyTypeCRef copy, CSTL_Alloc* alloc) {
     size_t type_size    = CSTL_type_size(type);
-    size_t node_size    = sizeof(CSTL_ListNode) + type_size;
-    CSTL_ListNode* node = (CSTL_ListNode*)CSTL_allocate(node_size, CSTL_type_alignment(type), alloc);
+    size_t type_align   = CSTL_type_alignment(type);
+    size_t value_offset = CSTL_list_node_value_offset(type);
+    size_t node_size    = value_offset + type_size;
+    CSTL_ListNode* node = (CSTL_ListNode*)CSTL_allocate(node_size, type_align, alloc);
     if (!node)
         return NULL;
 
-    copy->fill(CSTL_node_value(node), (char*)CSTL_node_value(node) + type_size, value);
+    void* node_val = CSTL_node_value(node, type);
+    copy->fill(node_val, (char*)node_val + type_size, value);
     return node;
 }
 
 static void CSTL_list_destroy_node(CSTL_ListNode* node, CSTL_Type type, CSTL_DropTypeCRef drop, CSTL_Alloc* alloc) {
     if (drop) {
-        void* first = CSTL_node_value(node);
+        void* first = CSTL_node_value(node, type);
         drop->drop(first, (char*)first + CSTL_type_size(type));
     }
-    size_t node_size = sizeof(CSTL_ListNode) + CSTL_type_size(type);
-    CSTL_free(node, node_size, CSTL_type_alignment(type), alloc);
+    size_t type_align   = CSTL_type_alignment(type);
+    size_t value_offset = CSTL_list_node_value_offset(type);
+    size_t node_size    = value_offset + CSTL_type_size(type);
+    CSTL_free(node, node_size, type_align, alloc);
 }
 
 static CSTL_ListNode* CSTL_list_create_node_move(CSTL_Type type, void* value, CSTL_MoveTypeCRef move, CSTL_Alloc* alloc) {
     size_t type_size    = CSTL_type_size(type);
-    size_t node_size    = sizeof(CSTL_ListNode) + type_size;
-    CSTL_ListNode* node = (CSTL_ListNode*)CSTL_allocate(node_size, CSTL_type_alignment(type), alloc);
+    size_t type_align   = CSTL_type_alignment(type);
+    size_t value_offset = CSTL_list_node_value_offset(type);
+    size_t node_size    = value_offset + type_size;
+    CSTL_ListNode* node = (CSTL_ListNode*)CSTL_allocate(node_size, type_align, alloc);
     if (!node)
         return NULL;
 
-    move->move(value, (char*)value + type_size, CSTL_node_value(node));
+    move->move(value, (char*)value + type_size, CSTL_node_value(node, type));
     return node;
 }
 
@@ -100,31 +117,32 @@ size_t CSTL_list_size(CSTL_ListCRef instance) {
 }
 
 size_t CSTL_list_max_size(CSTL_Type type) {
-    size_t type_size = CSTL_type_size(type);
-    size_t node_size = sizeof(CSTL_ListNode) + type_size;
-    if (node_size == 0)
-        return (size_t)-1;
-    return (size_t)-1 / node_size;
+    size_t type_size    = CSTL_type_size(type);
+    size_t value_offset = CSTL_list_node_value_offset(type);
+    size_t node_size    = value_offset + type_size;
+    if (node_size <= value_offset) // check for overflow
+        return 0;
+    return SIZE_MAX / node_size;
 }
 
-void* CSTL_list_front(CSTL_ListRef instance) {
+void* CSTL_list_front(CSTL_ListRef instance, CSTL_Type type) {
     assert(!CSTL_list_empty(instance));
-    return CSTL_node_value(instance->sentinel->next);
+    return CSTL_node_value(instance->sentinel->next, type);
 }
 
-const void* CSTL_list_const_front(CSTL_ListCRef instance) {
+const void* CSTL_list_const_front(CSTL_ListCRef instance, CSTL_Type type) {
     assert(!CSTL_list_empty(instance));
-    return CSTL_const_node_value(instance->sentinel->next);
+    return CSTL_const_node_value(instance->sentinel->next, type);
 }
 
-void* CSTL_list_back(CSTL_ListRef instance) {
+void* CSTL_list_back(CSTL_ListRef instance, CSTL_Type type) {
     assert(!CSTL_list_empty(instance));
-    return CSTL_node_value(instance->sentinel->prev);
+    return CSTL_node_value(instance->sentinel->prev, type);
 }
 
-const void* CSTL_list_const_back(CSTL_ListCRef instance) {
+const void* CSTL_list_const_back(CSTL_ListCRef instance, CSTL_Type type) {
     assert(!CSTL_list_empty(instance));
-    return CSTL_const_node_value(instance->sentinel->prev);
+    return CSTL_const_node_value(instance->sentinel->prev, type);
 }
 
 CSTL_ListIter CSTL_list_begin(CSTL_ListCRef instance) {
@@ -309,9 +327,9 @@ CSTL_ListIter CSTL_list_iterator_sub(CSTL_ListIter iterator, ptrdiff_t n) {
     return CSTL_list_iterator_add(iterator, -n);
 }
 
-void* CSTL_list_iterator_deref(CSTL_ListIter iterator) {
+void* CSTL_list_iterator_deref(CSTL_ListIter iterator, CSTL_Type type) {
     assert(iterator.pointer != iterator.owner->sentinel);
-    return CSTL_node_value((CSTL_ListNode*)iterator.pointer);
+    return CSTL_node_value((CSTL_ListNode*)iterator.pointer, type);
 }
 
 ptrdiff_t CSTL_list_iterator_distance(CSTL_ListIter lhs, CSTL_ListIter rhs) {
@@ -356,10 +374,10 @@ bool CSTL_list_copy_assign(CSTL_ListRef instance, CSTL_Type type, CSTL_CopyTypeC
         // Allocators are different and we must propagate.
         // Destroy all elements and free the sentinel with the old allocator.
         CSTL_list_destroy(instance, type, &copy->move_type.drop_type, alloc);
-        // Propagate the new allocator.
-        *alloc = *other_alloc;
+        // The user is responsible for updating their allocator instance.
         // Construct a new sentinel with the new allocator.
-        CSTL_list_construct(instance, alloc);
+        CSTL_list_construct(instance, other_alloc);
+        alloc = other_alloc;
     } else {
         // Allocators are the same or we don't propagate.
         // Just clear the elements.
@@ -368,7 +386,7 @@ bool CSTL_list_copy_assign(CSTL_ListRef instance, CSTL_Type type, CSTL_CopyTypeC
 
     // Copy elements from the other list.
     for (CSTL_ListIter it = CSTL_list_begin(other_instance); !CSTL_list_iterator_eq(it, CSTL_list_end(other_instance)); it = CSTL_list_iterator_add(it, 1)) {
-        if (!CSTL_list_copy_push_back(instance, type, copy, CSTL_const_node_value(it.pointer), alloc)) {
+        if (!CSTL_list_copy_push_back(instance, type, copy, CSTL_const_node_value(it.pointer, type), alloc)) {
             // In case of allocation failure during copy, the list is left in a valid but partially copied state.
             return false;
         }
@@ -404,7 +422,7 @@ bool CSTL_list_move_assign(CSTL_ListRef instance, CSTL_Type type, CSTL_MoveTypeC
         // Must move elements one by one. O(N)
         CSTL_list_clear(instance, type, &move->drop_type, alloc);
         for (CSTL_ListIter it = CSTL_list_begin(other_instance); !CSTL_list_iterator_eq(it, CSTL_list_end(other_instance)); it = CSTL_list_iterator_add(it, 1)) {
-            if (!CSTL_list_move_push_back(instance, type, move, CSTL_list_iterator_deref(it), alloc)) {
+            if (!CSTL_list_move_push_back(instance, type, move, CSTL_list_iterator_deref(it, type), alloc)) {
                 return false;
             }
         }

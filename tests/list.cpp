@@ -135,7 +135,7 @@ class ListTest : public testing::Test {
         for (; real_it != real_list.end(); ++real_it, cstl_it = CSTL_list_iterator_add(cstl_it, 1)) {
             ASSERT_FALSE(CSTL_list_iterator_eq(cstl_it, cstl_end));
             const TestInt& left  = *real_it;
-            const TestInt& right = *static_cast<const TestInt*>(CSTL_list_iterator_deref(cstl_it));
+            const TestInt& right = *static_cast<const TestInt*>(CSTL_list_iterator_deref(cstl_it, type));
             EXPECT_EQ(left, right);
         }
     }
@@ -232,16 +232,16 @@ TEST_F(ListTest, FrontAndBack) {
     real_list.push_back(val1);
     ASSERT_TRUE(CSTL_list_copy_push_back(cstl_list, type, &copy, &val1, alloc));
     list_assert_equal();
-    EXPECT_EQ(*static_cast<const TestInt*>(CSTL_list_const_front(cstl_list)), real_list.front());
-    EXPECT_EQ(*static_cast<const TestInt*>(CSTL_list_const_back(cstl_list)), real_list.back());
+    EXPECT_EQ(*static_cast<const TestInt*>(CSTL_list_const_front(cstl_list, type)), real_list.front());
+    EXPECT_EQ(*static_cast<const TestInt*>(CSTL_list_const_back(cstl_list, type)), real_list.back());
 
     const TestInt val2(222);
     real_list.push_back(val2);
     ASSERT_TRUE(CSTL_list_copy_push_back(cstl_list, type, &copy, &val2, alloc));
     list_assert_equal();
-    EXPECT_EQ(*static_cast<const TestInt*>(CSTL_list_const_front(cstl_list)), real_list.front());
-    EXPECT_EQ(*static_cast<const TestInt*>(CSTL_list_const_back(cstl_list)), real_list.back());
-    EXPECT_NE(*static_cast<const TestInt*>(CSTL_list_const_front(cstl_list)), *static_cast<const TestInt*>(CSTL_list_const_back(cstl_list)));
+    EXPECT_EQ(*static_cast<const TestInt*>(CSTL_list_const_front(cstl_list, type)), real_list.front());
+    EXPECT_EQ(*static_cast<const TestInt*>(CSTL_list_const_back(cstl_list, type)), real_list.back());
+    EXPECT_NE(*static_cast<const TestInt*>(CSTL_list_const_front(cstl_list, type)), *static_cast<const TestInt*>(CSTL_list_const_back(cstl_list, type)));
 }
 
 TEST_F(ListTest, Clear) {
@@ -393,7 +393,7 @@ TEST_F(ListTest, CopyAssign) {
     list_assert_equal();
 
     ASSERT_EQ(CSTL_list_size(other_list), 5);
-    const TestInt& val = *static_cast<const TestInt*>(CSTL_list_const_front(other_list));
+    const TestInt& val = *static_cast<const TestInt*>(CSTL_list_const_front(other_list, type));
     EXPECT_EQ(val, real_int);
 
     CSTL_list_destroy(other_list, type, &copy.move_type.drop_type, alloc);
@@ -466,7 +466,7 @@ TEST_F(ListTest, Swap) {
     auto real_it          = other_real_list.begin();
     CSTL_ListIter cstl_it = CSTL_list_begin(other_list);
     for (; real_it != other_real_list.end(); ++real_it, cstl_it = CSTL_list_iterator_add(cstl_it, 1)) {
-        EXPECT_EQ(*real_it, *static_cast<const TestInt*>(CSTL_list_iterator_deref(cstl_it)));
+        EXPECT_EQ(*real_it, *static_cast<const TestInt*>(CSTL_list_iterator_deref(cstl_it, type)));
     }
 
     CSTL_list_destroy(other_list, type, &copy.move_type.drop_type, alloc);
@@ -491,7 +491,7 @@ TEST_F(ListTest, CopyAssignWithAllocators) {
 
     real_list = other_real_list;
     CSTL_list_copy_assign(cstl_list, type, &copy, other_list, alloc1, alloc2, true);
-    EXPECT_TRUE(CSTL_alloc_is_equal(alloc1, alloc2)) << "Allocator should have been copied";
+    EXPECT_FALSE(CSTL_alloc_is_equal(alloc1, alloc2)) << "Allocator should not have been copied";
     list_assert_equal();
 
     TestAllocator new_alloc1_obj = create_test_allocator();

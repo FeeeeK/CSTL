@@ -74,8 +74,7 @@ typedef struct CSTL_ListIter {
 /**
  * Initializes the list pointed to by `new_instance`, allocating the sentinel node.
  *
- * An initialized list is empty. It can be trivially destroyed without leaks as long
- * as no functions that allocate (push, insert, etc.) have been called on it.
+ * Because of the sentinel node, the list is never empty, even if it contains no elements. `CSTL_list_destroy` must be called to free the allocated sentinel node.
  *
  * Re-initializing a list with existing nodes will leak the old nodes.
  *
@@ -131,7 +130,7 @@ bool CSTL_list_assign_n(CSTL_ListRef instance, CSTL_Type type, CSTL_CopyTypeCRef
  * If `CSTL_list_empty(instance) == true`, the behavior is undefined.
  *
  */
-void* CSTL_list_front(CSTL_ListRef instance);
+void* CSTL_list_front(CSTL_ListRef instance, CSTL_Type type);
 
 /**
  * Returns a const pointer to the first element in the list.
@@ -139,7 +138,7 @@ void* CSTL_list_front(CSTL_ListRef instance);
  * If `CSTL_list_empty(instance) == true`, the behavior is undefined.
  *
  */
-const void* CSTL_list_const_front(CSTL_ListCRef instance);
+const void* CSTL_list_const_front(CSTL_ListCRef instance, CSTL_Type type);
 
 /**
  * Returns a pointer to the last element in the list.
@@ -147,7 +146,7 @@ const void* CSTL_list_const_front(CSTL_ListCRef instance);
  * If `CSTL_list_empty(instance) == true`, the behavior is undefined.
  *
  */
-void* CSTL_list_back(CSTL_ListRef instance);
+void* CSTL_list_back(CSTL_ListRef instance, CSTL_Type type);
 
 /**
  * Returns a const pointer to the last element in the list.
@@ -155,7 +154,7 @@ void* CSTL_list_back(CSTL_ListRef instance);
  * If `CSTL_list_empty(instance) == true`, the behavior is undefined.
  *
  */
-const void* CSTL_list_const_back(CSTL_ListCRef instance);
+const void* CSTL_list_const_back(CSTL_ListCRef instance, CSTL_Type type);
 
 /**
  * Constructs an iterator to the first element of the list.
@@ -195,7 +194,7 @@ CSTL_ListIter CSTL_list_iterator_sub(CSTL_ListIter iterator, ptrdiff_t n);
  * Returns a pointer to the element. `iterator` must be dereferenceable.
  *
  */
-void* CSTL_list_iterator_deref(CSTL_ListIter iterator);
+void* CSTL_list_iterator_deref(CSTL_ListIter iterator, CSTL_Type type);
 
 /**
  * Subtracts two iterators and returns the distance measured in elements.
